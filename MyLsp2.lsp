@@ -1633,7 +1633,7 @@
 		(doPrint)
   )
 
-  (defun doPrint(/ cords)
+  (defun doPrint(/ cords folder dwgname fn)
 		(if ss
 		    (progn
 		    	;(setvar 'filedia 0) ; to do
@@ -1674,6 +1674,16 @@
 		    		)
 		    	)
 
+		    	;FILENAME FOR PLOT TO PDF
+		      	(setq dwgname "n")
+		      	;Preparing the folder to save the PDF or JPEG
+				(if (OR (= plottype 'pdf) (= plottype 'jpg))
+			      	(progn
+			      		(setq fn (getvar "dwgname") fn (cadr (fnsplitl fn)))
+			      		(setq folder (getDefualtPDFLocation fn))
+			  		)
+			  	)
+
 		    	;print loop
 		    	(repeat (length block_entities)
 		        	;(setq hnd (ssname ss (setq i (+ i delta))))
@@ -1694,13 +1704,9 @@
 					; ---   PLOTTING   ---- ;
 		        	; **********************;
 
-			      	;FILENAME FOR PLOT TO PDF
-			      	(setq dwgn "n")
-					(if (OR (= plottype 'pdf) (= plottype 'jpg))
-				      	(progn
-				      		(setq fn (getvar "dwgname"))
-				      		(setq dwgn (strcat (cadr (fnsplitl fn)) "-" (itoa increment)))
-				  		)
+		        	; if the plot type is in one of these, then the filename will an incremental number inside that folder
+		        	(if (OR (= plottype 'pdf) (= plottype 'jpg))
+				      	(setq dwgname (strcat folder "\\" (itoa increment)))
 				  	)
 
 					(command "zoom" "_object" object "")
@@ -1724,8 +1730,8 @@
 
 			      	;PLOT
 			      	(if (= plottype 'jpg)
-			      		(plotterj zprinter zpaper zstyle llpt urpt dwgn)
-			      		(plotter zprinter zpaper zstyle llpt urpt dwgn)
+			      		(plotterj zprinter zpaper zstyle llpt urpt dwgname)
+			      		(plotter zprinter zpaper zstyle llpt urpt dwgname)
               		)
 
               	;getting cords
@@ -1876,6 +1882,24 @@
 
 (defun getMax(n1 n2 /)
 	(max (abs n1) (abs n2))
+)
+
+(defun getDefualtPDFLocation(dwgname / cur_loc)
+	(setq cur_loc (getvar 'dwgprefix)
+		folder (strcat cur_loc dwgname "_PDF"))
+
+	(if (not (vl-file-directory-p folder)) ; no folder is found then, create one
+		(progn
+			(if (vl-mkdir folder)
+				(setq loc folder)
+				(setq loc "")
+			)
+		)
+		;if exists
+		(progn
+			(setq loc folder)
+		)
+	)
 )
 
 ; *******************************************************************
