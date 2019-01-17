@@ -1633,7 +1633,7 @@
 		(doPrint)
   )
 
-  (defun doPrint(/ cords)
+  (defun doPrint(/ cords folder dwgname fn isOverrideEnabled)
 		(if ss
 		    (progn
 		    	;(setvar 'filedia 0) ; to do
@@ -1674,6 +1674,32 @@
 		    		)
 		    	)
 
+		    	;FILENAME FOR PLOT TO PDF
+		      	(setq dwgname "n")
+		      	;Preparing the folder to save the PDF or JPEG
+				(if (OR (= plottype 'pdf) (= plottype 'jpg))
+			      	(progn
+			      		(setq fn (getvar "dwgname") fn (cadr (fnsplitl fn)))
+			      		(setq folder (getDefualtPDFLocation fn))
+
+			      		; getting rid of exiting pdf files files
+			      		; directory pattern folder/file
+			      		(if (/= nil (setq files (vl-directory-files folder "*.pdf")))
+		        			(progn
+		        				(setq cont (getstring (strcat "\n::: Delete exiting " (itoa (length files)) " PDF files? (Yes/No) <Y>: ")))
+			        			(if (/= "N" (strcase cont T))
+			        				(foreach file files
+			        					(progn
+			        						(princ (strcat "> Deleting.... " file "\n"))
+			        						(vl-file-delete (strcat folder "\\" file))
+			        					)
+			        				) ;foreach
+			        			) ;if
+		        			) ;progn
+		        		) ;if
+			  		) ;progn
+			  	) ;if
+
 		    	;print loop
 		    	(repeat (length block_entities)
 		        	;(setq hnd (ssname ss (setq i (+ i delta))))
@@ -1694,13 +1720,9 @@
 					; ---   PLOTTING   ---- ;
 		        	; **********************;
 
-			      	;FILENAME FOR PLOT TO PDF
-			      	(setq dwgn "n")
-					(if (OR (= plottype 'pdf) (= plottype 'jpg))
-				      	(progn
-				      		(setq fn (getvar "dwgname"))
-				      		(setq dwgn (strcat (cadr (fnsplitl fn)) "-" (itoa increment)))
-				  		)
+		        	; if the plot type is in one of these, then the filename will an incremental number inside that folder
+		        	(if (OR (= plottype 'pdf) (= plottype 'jpg))
+				      	(setq dwgname (strcat folder "\\" (itoa increment)))
 				  	)
 
 					(command "zoom" "_object" object "")
@@ -1724,8 +1746,8 @@
 
 			      	;PLOT
 			      	(if (= plottype 'jpg)
-			      		(plotterj zprinter zpaper zstyle llpt urpt dwgn)
-			      		(plotter zprinter zpaper zstyle llpt urpt dwgn)
+			      		(plotterj zprinter zpaper zstyle llpt urpt dwgname)
+			      		(plotter zprinter zpaper zstyle llpt urpt dwgname)
               		)
 
               	;getting cords
@@ -1768,11 +1790,15 @@
 	                (print))
 	            )
 
+	            ;open the folder where the pdfs were saved
+			    (if (OR (= plottype 'pdf) (= plottype 'jpg))
+					(openFolder folder)
+				)
+
 	            ;request to print again in case of other variants
 	    		(alert "Print a Copy of same project in other variants")
 	    		(printSet)
 		    ))
-
 
 		    ;(setvar 'filedia 1)
 
@@ -1876,6 +1902,30 @@
 
 (defun getMax(n1 n2 /)
 	(max (abs n1) (abs n2))
+)
+
+(defun getDefualtPDFLocation(dwgname / cur_loc)
+	(setq cur_loc (getvar 'dwgprefix)
+		folder (strcat cur_loc dwgname " PDF"))
+
+	(if (not (vl-file-directory-p folder)) ; no folder is found then, create one
+		(progn
+			(if (vl-mkdir folder)
+				(setq loc folder)
+				(setq loc "") ;default location
+			)
+		)
+		;if exists
+		(progn
+			(setq loc folder)
+		)
+	)
+)
+
+(defun openFolder(folder /)
+	;(startApp (strcat "explorer /select " folder ", /e"))
+	(startApp (strcat "explorer " "\"" folder "\""))
+	(princ)
 )
 
 ; *******************************************************************
