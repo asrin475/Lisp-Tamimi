@@ -37,9 +37,10 @@
   (setq s (chltr s "F" "f" "f" "F" "F" "f" "f" "F"))
   (setq s (chltr s "J" "j" "j" "J" "J" "j" "j" "J"))
   (setq s (chltr s "E" "e" "e" "E" "E" "e" "e" "E"))
-  (setq s (chltr s "[" "{" "{" "%%176" "[" "{" "{" "%%176"))
+  ;(setq s (chltr s "[" "{" "{" "%%176" "[" "{" "{" "%%176"))
   ;(setq s (chltr s "P" "p" "p" "%%177" "P" "p" "p" "%%177"))
-  (setq s (chltr s "P" "p" "p" "%%177" "P" "p" "p" "%%177"))
+  (setq s (chltr s "[" "{" "{" "%%176" "[" "{" "{" "{"))
+  (setq s (chltr s "P" "p" "p" "%%177" "P" "p" "p" "P")) ; because the extra character turns into a + mark after the file is opened
   (setq s (chltr s "O" "o" "o" "²" "O" "o" "o" "²"))
   (setq s (chltr s "S" "s" "s" "S" "S" "s" "s" "S"))
   (setq s (chltr s "A" "a" "a" "A" "A" "a" "a" "A"))
