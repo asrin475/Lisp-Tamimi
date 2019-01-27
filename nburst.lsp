@@ -33,6 +33,7 @@
         	; (if (and (> (length (vlax-invoke ob 'getattributes)) 0) (vlax-write-enabled-p ob))
         	; 	(vla-delete ob)
          ;    )
+                (progress)
             	(LM:burstnested ob)
 
         )
@@ -149,7 +150,7 @@
     (setvar 'nomutt 1)
     (setq sel (vl-catch-all-apply 'ssget arg))
     (setvar 'nomutt 0)
-    (if (not (vl-catch-all-error-p sel)) sel)
+    (if (not (vl-catch-all-error-p sel)) sel)   
 )
 
 ;; Start Undo  -  Lee Mac
@@ -175,6 +176,17 @@
 (defun LM:acdoc nil
     (eval (list 'defun 'LM:acdoc 'nil (vla-get-activedocument (vlax-get-acad-object))))
     (LM:acdoc)
+)
+
+(setq ind 0)
+(defun progress(/ chars)
+    (setq chars '("-" "\\" "|" "\/"))
+
+    ;(repeat 40
+        (princ (strcat "\rPlease wait... " (nth ind chars)))
+        (setq ind (rem (1+ ind) (length chars)))
+    ;)
+    (princ)
 )
 
 (vl-load-com) (princ)
