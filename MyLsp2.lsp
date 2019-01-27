@@ -4,7 +4,7 @@
 ;
 ;
 ;
-(setq MYVER "v1.3 alpha 7 - bumble bee")
+(setq MYVER "v1.3 alpha 15 - bumble bee")
 #| ; ***************************************************
 ;	CHANGES
 ; ***************************************************
@@ -86,7 +86,8 @@
 )
 
 (setq $TAMIMI "TAMIMI"
-		$CORDS "COORDINATES")
+		$CORDS 'COORDINATES
+		$HISTORY 'HISTORY)
 
 ;PRINTER SUPPORT FUNCTIONS
 (defun $get_printer(printer_name /)
@@ -101,7 +102,7 @@
 (defun $get_priniting_method(method_id /)
 	(cadr (assoc method_id $G_PRINTING_METHOD)))
 
-;setting up printer
+;setting up printer for old function
 (setq pHp Robot)
 
 (setq blocksToSelect
@@ -201,7 +202,7 @@
 
 	(defun modeContinuous(/ obj)
 
-		(setq num (1- (atoi ATTRNUMBER)))
+		(setq num (atoi ATTRNUMBER))
 		(print)
 		(while
 			(setq block (car (entsel "\rSelect Object <= Incremental: ")))
@@ -213,7 +214,6 @@
 	 			)
 	 			;else
 	 			(progn
-	 				(setq num (1+ num))
 		 			(mapcar
 		 				'(lambda (attr)
 							(if (= (vla-get-tagstring attr) ATTRTAG:STRING)
@@ -223,6 +223,7 @@
 		 				(vlax-invoke obj 'GetAttributes)
 		 			) ;mapcar
 
+	 				(setq num (1+ num))
 		 			(setq ATTRNUMBER (itoa num))
 	 			) ;progn
 	 		) ;if
@@ -266,7 +267,7 @@
 	(defun getWord(/ input)
 		(if (= nil ATTRNUMBER) (setq ATTRNUMBER "1"))
 		(setq input (getstring (strcat "\nSpecify Window number <W-" ATTRNUMBER ">: ")))
-		(if (/= input "")
+		(if (and (/= input "") (/= (atoi input) 0))
 			(setq ATTRNUMBER input))
 		(getInput)
 	)
@@ -532,9 +533,52 @@
 	(princ)
 );defun rd
 
+;making a block of columns only
+(defun c:mc(/)
+	(defun selectColumns(/ cols)
+		(if (and
+				(setq cols (ssget ":S" '((0 . "INSERT")))) ; select current columns block
+				(setq base_point (getpoint "Pick base point:")))
+			(progn
+				(command "_explode" cols)
+				(setq cols (ssget "_P"))
+
+				(setq current_block_name (getAvailableBlockName "COLS_"))
+				;(princ current_block_name)
+				(command "-block" current_block_name base_point cols "")
+
+				(insertBlock current_block_name base_point)
+				(princ (strcat "\nBLOCK NAME: " current_block_name "\n"))
+				(command "-refedit" (entlast) "_O" "_A" "_Y")
+			)
+		)
+	)
+
+	(defun getAvailableBlockName(_prefix / dwg block_name num current_block name_limit_thrushold)
+
+		(setq dwg (getvar 'dwgname)) ; example.dwg
+ 		(setq block_name (strcat _prefix (strcase (substr dwg 1 (- (strlen dwg) 4)) nil) "_")) ; BLOCK_EXAMPE_
+ 		(setq num 1 name_limit_thrushold 10)
+
+		(repeat name_limit_thrushold
+
+			(if (= (blockAvailable (strcat block_name (itoa num))) nil)
+				(progn
+					(setq current_block (strcat block_name (itoa num)))
+					current_block
+				)
+				(setq num (1+ num))
+			)
+
+		)
+	)
+
+	(selectColumns)
+	(princ)
+)
+
 
 (defun c:mb(/)
-
 
 	(defun makeBlock(/ blocks base_point current_block_name)
 		(if (and
@@ -596,14 +640,18 @@
 				(setq pointers (getBoundingBox current_block))
 				(print pointers)
 				(command "_rectangle" "_non" (car pointers) "_non" (cadr pointers))
+
+				(command "_offset" 1 (entlast) pause "")
+				(command "_offset" 0.8 (entlast) pause "")
 				(command "_explode" current_block)
+
 			)
 		)
 	)
 
 	(defun makeBlock(/ objects base_point current_block_name)
 		(setq current_block_name "tamimi_temp"
-			 objects (ssget '((8 . "WAL"))))
+			 objects (ssget '((-4 . "<OR") (8 . "WAL") (8 . "HIDDEN") (-4 . "OR>"))))
 		(setq base_point (getpoint "Pick base point:"))
 
 		(if (/= (blockAvailable current_block_name) nil)
@@ -622,6 +670,39 @@
 	)
 
 	(draw_Rectangle)
+	(princ)
+)
+
+
+(defun c:cb(/ block_to_find block_name blocks)
+	(setq block_to_find (ssget ":S" '((0 . "INSERT"))))
+	(if (/= block_to_find nil)
+		(progn
+			(setq block_name (cdr (assoc 2 (entget (ssname block_to_find 0))))) ;name of block
+			(print block_name)
+			(setq blocks (ssget "_X" (list (cons 0 "INSERT") (cons 2 block_name))))
+			(command "_SELECT" blocks)
+
+			(if (> (sslength blocks) 0)
+				(progn
+					;remove
+					;(command "_SELECT" blocks)
+					(while (> (getvar 'cmdactive) 0) (command pause)
+	        				(setq blocks (ssget "_P")))
+
+					(initget "Y N")
+					(setq cont (getstring (strcat "\n::: Delete blocks (" (itoa (sslength blocks)) " found)? (Yes/No) <N>: ")))
+
+
+		      			(if (= (strcase cont nil) "Y")
+		      				(command "_ERASE" blocks "")
+		      				(princ "OK")
+		      			)
+					;(command "-purge" "B" block_name "N" "") ; purgeblock
+				)
+			)
+		)
+	)
 	(princ)
 )
 
@@ -735,7 +816,7 @@
 	(princ)
 )
 
-(defun c:pp(/ area ground perc output)
+(defun c:bp(/ area ground perc output)
 
 	(defun get(obj / rtn)
 		(princ (vla-get-TextString obj))
@@ -1628,8 +1709,8 @@
 					zpaper ($get_paper_for_printer f_cpi)
 					plottype 'pdf)
 			)
-			(exit)
-	   )
+			((exit))
+	   	) ;cond
 		(doPrint)
   )
 
@@ -1688,12 +1769,17 @@
 		        			(progn
 		        				(setq cont (getstring (strcat "\n::: Delete exiting " (itoa (length files)) " PDF files? (Yes/No) <Y>: ")))
 			        			(if (/= "N" (strcase cont T))
-			        				(foreach file files
-			        					(progn
-			        						(princ (strcat "> Deleting.... " file "\n"))
-			        						(vl-file-delete (strcat folder "\\" file))
-			        					)
-			        				) ;foreach
+			        				(progn
+			        					(foreach file files
+				        					(progn
+				        						(princ (strcat "> Deleting... " file " - "))
+				        						(if (vl-file-delete (strcat folder "\\" file))
+				        							(princ "Done.\n")
+				        							(princ "Failed.\n"))
+				        					)
+			        					) ;foreach
+			        				)
+			        				(princ "")
 			        			) ;if
 		        			) ;progn
 		        		) ;if
@@ -1767,6 +1853,8 @@
 		(markLastPrint)
         ;(print (setq rev (reverse cords)))
 
+        ;mark history
+	    (mark_history cords plottype)
 
 		    ; PREPARING THE SAME SELECTION SET FOR ANOTHER PRINT
 		    (if (> (sslength ss) 5)
@@ -1795,11 +1883,13 @@
 					(openFolder folder)
 				)
 
+
+
 	            ;request to print again in case of other variants
 	    		(alert "Print a Copy of same project in other variants")
 	    		(printSet)
 		    ))
-
+		    
 		    ;(setvar 'filedia 1)
 
 		    ) ;progn
@@ -1928,6 +2018,207 @@
 	(princ)
 )
 
+; ***************************************************************************
+;	This function will store the history on every time the file is printed
+; ***************************************************************************
+
+(defun mark_history(blocks_printed type / entry history_in_file)
+	(setq entry 
+		(list 
+			(cons 'TIME (getvar 'date)) ;can get the date as we want 
+			(cons 'USER (getvar 'loginname))
+			(cons 'VARIENT type)
+			(cons 'TOTAL (length blocks_printed))
+			(cons $CORDS blocks_printed)
+			
+		)
+	)
+
+	(if (/= nil (setq history_in_file (vlax-ldata-get $TAMIMI $HISTORY)))
+		(progn
+			;insert this array to existing
+			(setq history_in_file (cons entry history_in_file))
+			(vlax-ldata-put $TAMIMI $HISTORY history_in_file)
+		)
+		(progn
+			;create new list
+			(vlax-ldata-put $TAMIMI $HISTORY (list entry))
+		)
+	)
+	(princ entry)
+	(princ "\n History is marked")
+)
+
+(defun c:ld()
+	(load ".\\MyLsp.lsp"))
+
+; ***************************************************************************
+;	access the printing history
+; ***************************************************************************
+
+(defun C:hpl(/ all_history view_center view_size view_point)
+
+	(defun show_list(/ i entry str maxlength entries title)
+		(setq i 1
+			maxlength 0 
+			entries '()
+			title (strcat "-= HISTORY : " (strcase (substr (drawingName) 1 (- (strlen (drawingName)) 4)) nil) " =-\n"))
+
+		(if (/= nil (setq all_history (vlax-ldata-get $TAMIMI $HISTORY)))
+			(progn
+				;(setq i (length all_history))
+				;prepareing array of history
+				(vl-catch-all-apply 'textscr)
+				(foreach entry all_history
+					(progn
+						;(princ (get $CORDS entry))
+						(setq str (strcat (itoa i) ". " (get 'VARIENT entry) "(" (itoa (get_length $CORDS entry)) ") - " (get 'USER entry) "   " (getDateString (assoc 'TIME entry))  "\n"))
+						(setq entries (cons str entries))
+
+						(if (> (strlen str) maxlength)
+							(setq maxlength (strlen str)))
+
+						(setq i (1+ i))
+						(princ)
+					)
+				);foreach
+
+				;header
+				(princ "\n\n")
+				(princ (getLines maxlength "*")) (princ "\n")
+				(princ)
+				(princ (strcat (getLines (/ (- maxlength (strlen title)) 2) " ")))
+				(princ title)
+				(princ (getLines (/ (- maxlength (strlen (strcat "\nToday:" (getDate)))) 2) " "))
+				(princ (strcat "Today:" (getDate) "\n"))
+				(princ (getLines maxlength "*")) (princ "\n")
+
+				;list of entries
+				(foreach line (reverse entries)
+					(princ line))
+
+				(getInput)
+			);progn if
+			(princ "No History")
+		);if
+	)
+
+	(defun getInput(/ selection)
+		(initget (+ 1 2 4))
+		(setq selection (getint (strcat "\nSelect an entry : ")) selection (1- selection))
+	    (if (AND (> selection -1) (/= nil (nth selection all_history)))
+	    	(progn
+	    		(doEntry (nth selection all_history) selection)
+	    	)
+	    	(progn
+	    		(princ "\nInvalid selection.")
+	    		(getInput)
+	    	)
+	    )
+		(princ)
+	)
+
+	(defun doEntry(entry index / ans cmdline)
+		(terpri)
+		(setq cmdline (strcat "-> " (itoa (1+ index)) ". " (get 'VARIENT entry) "(" (itoa (get_length $CORDS entry)) ") - " (get 'USER entry) " " (getDateString (assoc 'TIME entry))))
+		;Print output
+		(terpri)
+		(princ (getLines (strlen cmdline) "*")) 
+		(terpri)
+		(princ cmdline)
+		(terpri)
+		(princ (getLines (strlen cmdline) "*"))
+		
+		(initget "Back Print Delete Next")
+		(setq ans (getreal "\nChoose an option [<= Back/Print/Delete/Next =>] <Esc>: "))
+		(cond
+			((= ans "Print")
+				(ph_core (cdr (assoc $CORDS entry))))
+
+			((= ans "Delete")
+				(delete_entry index))
+
+			((= ans "Back")
+				(show_list))
+
+			((= ans "Next")
+				(progn
+					(if (/= nil (nth (1+ index) all_history))
+						(doEntry (nth (1+ index) all_history) (1+ index))
+						(show_list))
+				))
+			;default is to exit the function
+			((exit))
+		)
+	)
+
+	;to-do: have to commit all_history
+	(defun delete_entry(index / ind)
+		(setq ind -1)
+		(setq all_history (vl-remove-if 
+			(function 
+				(lambda (item)
+					(= index (setq ind (1+ ind)))
+				)
+			) 
+		all_history))
+
+		;commiting all changes
+		(if (vlax-ldata-put $TAMIMI $HISTORY all_history)
+			(princ "\nDeleted Successfully.")
+			(princ "\nError!"))
+		(show_list)
+	)
+
+	;get elements from the array
+	(defun get(key array / rt)
+		;(princ (assoc key array))
+		(if (/= nil (setq rt (cdr (assoc key array))))
+			(vl-princ-to-string rt)
+			"*"
+		)
+	)
+
+	;formats the date
+	(defun getDateString(dt /)
+		(setq dt (cdr dt)) ; (TIME . value) -> cdr -> value (coz it's a associative)
+		(if (= (type dt) 'REAL)
+			(progn
+				(menucmd (strcat "m=$(edtime," (rtos dt) ",D-MON-YY (DDD) HH:MM AM/PM)")))
+			dt
+		)
+	)
+
+	;get number of coordinates stored
+	(defun get_length(key array / rt)
+		;(princ (assoc key array))
+		(if (/= nil (setq rt (cdr (assoc key array))))
+			(length rt)
+			0
+		)
+	)
+
+	;print header patterns
+	(defun getLines(len pat / tmp)
+		(progn
+			;(setq tmp (cons "\n" tmp))
+			(repeat len
+				(setq tmp (cons pat tmp)))
+		)
+		(apply 'strcat tmp)
+	)
+
+	(defun capture_zoom(/)
+		(setq view_center (getvar 'VIEWCTR)
+			view_size (getvar 'VIEWSIZE)
+			view_point (trans '(0 0 1) 0 1))
+	)
+
+	(show_list)
+	(princ)
+)
+;"(" (itoa (assoc 'TOTAL entry)) ") - " (assoc 'USER entry) " " (assoc 'TIME entry))))
+
 ; *******************************************************************
 ; Plotter : core function which helps to plot to printer
 ; *******************************************************************
@@ -1953,8 +2244,10 @@
 )
 
 ; INCLUDED TO PRINT IN DIFFERENT ORIENTATION
-									______ orientation
-								   |
+			style_______	 _____ coordinates
+		   paper_____  |	|	 ______ plot name or pdf
+		printer__ 	|  |	|	|	______ orientation
+				|	|  |	|	|  |
 (defun plotter2(a1 a2 a3 a4 a5 a6 a7 /)
 	; never change this function
 	;(princ (strcat a6))
@@ -1968,14 +2261,26 @@
 (if (/= temparrayref nil)
   (print (strcat "This file supports printing from history! of " (itoa (length temparrayref)) " blocks to print")))
 
-
 ;*****************************************
 ;PRINT USING COORDINATES SAVED IN THE FILE
 ;*****************************************
-(defun c:ph(/ cords i j blocks temp echo missing t_missing)
 
-	(setq cords (vlax-ldata-get "TAMIMI" "COORDINATES")
-	  	i 0 j i missing 0)
+(defun c:ph(/)
+	(ph_core nil)
+)
+
+(defun ph_core(_cords / cords i j blocks temp echo missing t_missing)
+
+	(if (= nil _cords)
+		(setq cords (vlax-ldata-get $TAMIMI $CORDS))
+		(progn 
+			(setq cords _cords)
+			(vl-catch-all-apply 'graphscr)
+		)
+	)
+
+	;common variables
+	(setq i 0 j i missing 0)
 	(util:activateCmdecho)
 
   	(if (/= cords nil)
@@ -2028,6 +2333,8 @@
 	      )
 	      ; check detected object whether selected correctly or not
 	      ;(command "erase" blocks "")
+
+	      (command "zoom" "_object" blocks "")
 
 	      (princ "\n*** Print Back Feature ***\n")
 
@@ -2086,10 +2393,9 @@
 ; *******************************************************************
 ; Rorate multiple objects aroud its base point
 ; *******************************************************************
-(defun c:r2( / sel o e rot osm *error* error_bak ce)
+(defun c:r2(/ sel o e rot osm *error* error_bak ce)
 
 	(setq osm (getvar 'osmode)
-		i 0
 		error_bak *error*
 		ce (getvar 'cmdecho))
 
@@ -2097,32 +2403,52 @@
     (setvar 'cmdecho 0)
 
 	(defun *error* (msg /)
-			;ON ERROR
-			(if (not (member msg '("Function cancelled")))
-				(print msg)
-				)
-			(setvar 'osmode osm)
-			(setvar 'cmdecho ce)
-			(setq *error* error_bak)
-		)
+		;ON ERROR
+		(if (not (member msg '("Function cancelled")))
+			(print msg))
 
-  ; backing up osmode varplpklpl1
-	(if (setq sel (ssget '((0 . "INSERT"))))
-    (progn
-      (if (not (setq rot (getint "\nSpecify rotating angle <90>: ")))
-          (setq rot 90))
+		(setvar 'osmode osm)
+		(setvar 'cmdecho ce)
+		(setq *error* error_bak)
+	)
 
-      (while (< i (sslength sel))
-          (setq o (ssname sel i)
-            e (entget o)
-            i (1+ i))
+  	; backing up osmode varplpklpl1
+	
 
-          (command "_rotate" o "" (cdr (assoc 10 e)) rot)
-          ;(princ e)
-      ) ;while
-    ) ;progn
-  )
+	(defun rotateObj(blocks angle / i entity)
+		;(print (strcat (itoa (sslength blocks)) "-" (itoa angle)))
+		(setq i 0)
+		(while (< i (sslength blocks))
+        	(setq obj (ssname blocks i)
+        		entity (entget obj)
+        		i (1+ i))
+
+        	(command "_rotate" obj "" (cdr (assoc 10 entity)) angle)
+      	);while
+	)
 	;restoring object snap mode value
+
+	;to-do : memory caching of angle 
+	(defun selectObj(/ blocks angle_input)
+		(if (setq blocks (ssget '((0 . "INSERT"))))
+		    (progn
+		    	;setting global angle for memory
+		    	(if (not g_angle)
+		    		(setq g_angle 90))
+
+			    (while
+			    	(princ (strcat "\r\r>> Angle to rotate <" (itoa g_angle) "\\U+00B0>: "))
+			    	(if (not (setq angle_input (getint "")))
+		        		(setq angle_input g_angle)
+		        		(setq g_angle angle_input))
+
+		    		(rotateObj blocks angle_input) 
+			    );while			    	 
+			);progn
+		)
+	)
+
+	(selectObj)
     (setvar 'osmode osm)
 	(princ)
 )
@@ -2173,6 +2499,8 @@
 ; *******************************************************************
 ; Change MTEXT STEXT Text Continuously
 ; COMMAND : T4
+;
+;	changing the function to support nested texts 
 ; *******************************************************************
  (defun c:T4(/ usertext sel)
  	;(setq usertext (strcase (getstring "\nText to Replace: ") nil))
@@ -2192,6 +2520,21 @@
  				)
  			)
  		)
+ 	)
+
+ 	(defun pasteSingle(ename_text /)
+ 		(setq p (vlax-ename->vla-object ename_text))
+	 		(vlax-put p 'TextString usertext)
+ 		(princ)
+ 	)
+
+ 	;bl_def will be the output of ssnamex 
+ 	(defun pasteInBlock(bl_def /)
+ 		(setq bs (car (nentselp bs (caddr bl_def))))
+ 		(if (/= nil bs)
+ 			(pasteSingle bs)
+ 		)
+ 		(princ)
  	)
 
  )
@@ -2785,6 +3128,11 @@
 	)
 
 	(init)
+)
+
+;prompt user for input
+(defun getPrompt(msg / rt)
+	(setq rt (strcase (getstring msg) nil))	      			
 )
 
 
