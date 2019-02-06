@@ -119,7 +119,7 @@
     	(-4 . "<AND")
     		(0 . "LWPOLYLINE") (8 . "WALL") (-4 . ">") (43 . 0.06) ; cover page contains this outer line
     	(-4 . "AND>")
-	(-4 . "OR>"))	;LIST
+	(-4 . "OR>"))	;LIST<F2><F2><F2>
 ) ;SETQ
 
 ; ERROR HANDLER FOR THIS LSP
@@ -319,7 +319,7 @@
 
 ; *******************************************************************
 ; COMMAND : DD
-; Renaming Electrical Panel Board name when they are too lot to handle
+; Renaming Electrical Panel Board names when they are too lot to handle
 ; *******************************************************************
 
 (defun c:dd( / p q lst obj ent i j k apply input ipre)
@@ -816,7 +816,7 @@
 	(princ)
 )
 
-(defun c:bp(/ area ground perc output)
+(defun c:bf(/ area ground perc output)
 
 	(defun get(obj / rtn)
 		(princ (vla-get-TextString obj))
@@ -1185,8 +1185,8 @@
 
 
 	(if (> old now)
-		(princ (strcat "\n*** FILE REDUCED : " (rtos (- old now)) " KB \\U+2193"))
-		(princ (strcat "\n*** FILE INCREASED : " (rtos (- now old)) " KB \\U+2191"))
+		(princ (strcat "\n*** FILE REDUCED : " (rtos (- old now) 2 2) " KB \\U+2193"))
+		(princ (strcat "\n*** FILE INCREASED : " (rtos (- now old) 2 2) " KB \\U+2191"))
 	)
 ;(command ".ZOOM" "Extents")
  (princ)) ;Purges all unused symbols
@@ -1715,6 +1715,13 @@
   )
 
   (defun doPrint(/ cords folder dwgname fn isOverrideEnabled)
+
+  		;Setting up constraints
+  		(setq 
+  			project_limit_thrushold 5
+  			sorting_thrushold 3
+  			progress_thrushold 5)
+
 		(if ss
 		    (progn
 		    	;(setvar 'filedia 0) ; to do
@@ -1735,7 +1742,6 @@
 
 		    	;ss
 		    	; sorting ename blocks
-		    	(setq sorting_thrushold 3)
 		    	(if (and (<= sorting_thrushold (sslength ss)) (OR (= :vlax-false isHistory) (= :vlax-true needSort)))
 		    		(progn
 		    			(setq cont (getstring "\n::: Sort-Blocks? (Yes/No) <N>: "))
@@ -1747,7 +1753,6 @@
 		    		(setq block_entities (vl-remove-if 'listp (mapcar 'cadr (ssnamex ss)))) ;un- sorted
 		    	)
 
-		    	(setq progress_thrushold 3)
 		    	(if (<= progress_thrushold (length block_entities))
 		    		(progn
 		    			;(load ".\\progress.lsp")
@@ -1786,6 +1791,9 @@
 			  		) ;progn
 			  	) ;if
 
+				;init progress
+				(acet-ui-progress-init "Printing in Progress : " (length block_entities))
+
 		    	;print loop
 		    	(repeat (length block_entities)
 		        	;(setq hnd (ssname ss (setq i (+ i delta))))
@@ -1815,6 +1823,7 @@
 			      	(princ (strcat "\n*** Printing " (itoa increment) " of " (itoa (sslength ss)) " ***"))
 
 			      	;increment progress
+			      	(acet-ui-progress-safe increment)
 					(ODCL:setProgress increment)
 
 			      	; PAUSING THE SECOND PRINT
@@ -1847,6 +1856,7 @@
         ;RESTORING ZOOM LEVEL
         ;*********************
         (ODCL:closeProgress)
+        (acet-ui-progress-done)
 		(command "_ZOOM" "_C" (trans vc ve 1) vs)
 
 		;save last printed date
@@ -1854,41 +1864,40 @@
         ;(print (setq rev (reverse cords)))
 
         ;mark history
-	    (mark_history cords plottype)
+	    (mark_history (if (/= plottype 'colour) (reverse cords) cords) plottype) ; if it is colour cords will be ordered top - bottom
 
 		    ; PREPARING THE SAME SELECTION SET FOR ANOTHER PRINT
-		    (if (> (sslength ss) 5)
+		    (if (> (sslength ss) project_limit_thrushold)
 		    	(progn
 
-            ;*********************************
-            ;STORING COORDINATES INTO THE FILE
-            ;*********************************
-            ;(initget "Y" "N")
-            (setq ans (getstring "\nWould you like to save these block references for later Printing? (Y/N) <N>: "))
+		            ;*********************************
+		            ;STORING COORDINATES INTO THE FILE
+		            ;*********************************
+		            ; (initget "Y N")
+		            ; (setq ans (getstring "\nWould you like to save these block references for later Printing? (Y/N) <N>: "))
 
-	            (if (= (strcase ans nil) "Y")
-	              (progn
-	                ;IF THE PRINTING WAS FOR COLOR, COORDINATES IS ARRANGED FROM TOP TO BOTTOM
-	                (if (/= plottype 'colour)
-	                  (setq cords (reverse cords)))
+		            ; (if (= (strcase ans nil) "Y")
+		            ;   (progn
+		            ;     ;IF THE PRINTING WAS FOR COLOR, COORDINATES IS ARRANGED FROM TOP TO BOTTOM
+		            ;     (if (/= plottype 'colour)
+		            ;       (setq cords (reverse cords)))
 
-	                (vlax-ldata-put $TAMIMI $CORDS cords)
-	                (print)
-	                (princ "\n*** COORDINATES HAVE BEEN SAVED ***")
-	                (print))
-	            )
+		            ;     (vlax-ldata-put $TAMIMI $CORDS cords)
+		            ;     (print)
+		            ;     (princ "\n*** COORDINATES HAVE BEEN SAVED ***")
+		            ;     (print))
+		            ; )
 
-	            ;open the folder where the pdfs were saved
-			    (if (OR (= plottype 'pdf) (= plottype 'jpg))
-					(openFolder folder)
-				)
+		            ;open the folder where the pdfs were saved
+				    (if (OR (= plottype 'pdf) (= plottype 'jpg))
+						(openFolder folder)
+					)
 
-
-
-	            ;request to print again in case of other variants
-	    		(alert "Print a Copy of same project in other variants")
-	    		(printSet)
-		    ))
+		            ;request to print again in case of other variants
+		    		(alert "Print a Copy of same project in other variants")
+		    		(printSet)
+		    	);progn
+		    )
 		    
 		    ;(setvar 'filedia 1)
 
@@ -2056,13 +2065,13 @@
 ;	access the printing history
 ; ***************************************************************************
 
-(defun C:hpl(/ all_history view_center view_size view_point)
+(defun C:hpl(/ all_history view_center view_size view_point maxlength)
 
-	(defun show_list(/ i entry str maxlength entries title)
+	(defun show_list(/ i entry str entries title)
 		(setq i 1
 			maxlength 0 
 			entries '()
-			title (strcat "-= HISTORY : " (strcase (substr (drawingName) 1 (- (strlen (drawingName)) 4)) nil) " =-\n"))
+			title (strcat "-= HISTORY : " (strcase (substr (drawingName) 1 (- (strlen (drawingName)) 4)) nil) " =-"))
 
 		(if (/= nil (setq all_history (vlax-ldata-get $TAMIMI $HISTORY)))
 			(progn
@@ -2072,7 +2081,7 @@
 				(foreach entry all_history
 					(progn
 						;(princ (get $CORDS entry))
-						(setq str (strcat (itoa i) ". " (get 'VARIENT entry) "(" (itoa (get_length $CORDS entry)) ") - " (get 'USER entry) "   " (getDateString (assoc 'TIME entry))  "\n"))
+						(setq str (strcat (itoa i) ". " (get 'VARIENT entry) "(" (itoa (get_length $CORDS entry)) ") - " (get 'USER entry) "   " (getDateString (assoc 'TIME entry)) "\n"))
 						(setq entries (cons str entries))
 
 						(if (> (strlen str) maxlength)
@@ -2085,13 +2094,11 @@
 
 				;header
 				(princ "\n\n")
-				(princ (getLines maxlength "*")) (princ "\n")
-				(princ)
-				(princ (strcat (getLines (/ (- maxlength (strlen title)) 2) " ")))
-				(princ title)
-				(princ (getLines (/ (- maxlength (strlen (strcat "\nToday:" (getDate)))) 2) " "))
-				(princ (strcat "Today:" (getDate) "\n"))
-				(princ (getLines maxlength "*")) (princ "\n")
+				(horizontal_line)
+				(header title)
+				(header (strcat "Today:" (getDate)))
+				(header (strcat "Number of pages printed : " (itoa (count_all all_history))))
+				(horizontal_line)
 
 				;list of entries
 				(foreach line (reverse entries)
@@ -2105,7 +2112,7 @@
 
 	(defun getInput(/ selection)
 		(initget (+ 1 2 4))
-		(setq selection (getint (strcat "\nSelect an entry : ")) selection (1- selection))
+		(setq selection (getint (strcat "\nSelect an item : ")) selection (1- selection))
 	    (if (AND (> selection -1) (/= nil (nth selection all_history)))
 	    	(progn
 	    		(doEntry (nth selection all_history) selection)
@@ -2184,7 +2191,8 @@
 		(setq dt (cdr dt)) ; (TIME . value) -> cdr -> value (coz it's a associative)
 		(if (= (type dt) 'REAL)
 			(progn
-				(menucmd (strcat "m=$(edtime," (rtos dt) ",D-MON-YY (DDD) HH:MM AM/PM)")))
+				(strcat (menucmd (strcat "m=$(edtime," (rtos dt) ",D-MON-YY (DDD) HH:MM AM/PM)")) (date_string dt))
+			)
 			dt
 		)
 	)
@@ -2198,6 +2206,31 @@
 		)
 	)
 
+	;print header text
+	(defun header(txt /)
+		(setq spanning_thrushold (/ (- maxlength (strlen txt)) 2))
+		(princ (strcat (getLines spanning_thrushold " ") txt))
+		(terpri)
+	)
+
+	;prints horizontal lines of *
+	(defun horizontal_line(/)
+		(princ (getLines maxlength "*"))
+		(terpri)
+	)	
+
+	;count papers in total so far
+	(defun count_all(array /)
+		(apply '+ 
+			(mapcar 
+				'(lambda (x)
+					(length (cdr (assoc $CORDS x)))
+				)
+				array
+			)
+		)
+	)
+
 	;print header patterns
 	(defun getLines(len pat / tmp)
 		(progn
@@ -2208,6 +2241,51 @@
 		(apply 'strcat tmp)
 	)
 
+	(defun date_string(date_p / today ret)
+		;total days between 2 dates
+		(setq today (splitdate_elements (getvar 'date)))
+		(setq date_p (splitdate_elements date_p))
+		
+		(cond 
+			((= date_p today)
+				"  [Today] *"
+			)
+			((< (- today date_p) 2)
+				"  [Yesterday]"
+			)
+			((< (- today date_p) 8)
+				"  [This week]"
+			)
+			((< (- today date_p) 31)
+				"  [This Month]"
+			)
+		)
+	)
+
+	(defun splitdate_elements(date / date_str date_elements_array)
+		(setq date_str (menucmd (strcat "m=$(edtime," (rtos date) ",D-M-YYYY)")))
+		(setq date_elements_array (split date_str)) ;date will be as an
+		;(print date_elements_array)
+		;total 
+		(apply '+ 
+			(mapcar 
+				'(lambda (x y)
+					(* x (atoi y))
+				) 
+				'(1 30 365) date_elements_array)
+			)
+	)
+
+	(defun split(str / arr pos)
+		(setq arr 
+			(if (setq pos (vl-string-search "-" str))
+				(cons (substr str 1 pos) (split (substr str (+ 2 pos))))
+				(list str)
+			)
+		)
+	)
+
+	;
 	(defun capture_zoom(/)
 		(setq view_center (getvar 'VIEWCTR)
 			view_size (getvar 'VIEWSIZE)
