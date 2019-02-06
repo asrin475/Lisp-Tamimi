@@ -31,12 +31,12 @@
 )
 ```
 
-2. ```HPL```: Shows history of printings for a file 
+2. ```HPL```: Shows File's printing history
 ```lisp	
 	**************************************************************
 			   -= HISTORY : PRO 2228 =-
 			 Today: 6, Wednesday 12:57 PM
-			 Number of pages printed : 35
+			 Number of Pages printed : 35
 	**************************************************************
 	1. COLOUR(22) - User   3-Feb-19 (Sun) 01:22 PM  [This week]
 	2. BLACK(1) - User   3-Feb-19 (Sun) 12:15 PM  [This week]
@@ -44,6 +44,6 @@
 	4. COLOUR(1) - User   28-Jan-19 (Mon) 01:44 PM  [This Month]
 	5. COLOUR(1) - User   28-Jan-19 (Mon) 01:41 PM  [This Month]
 ```
-
-
+3. ```MH``` : Draw Multilines over polylines
+3. ```MK``` : Trim Multilines and close the edges
   
