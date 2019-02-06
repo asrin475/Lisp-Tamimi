@@ -28,10 +28,11 @@
 
 	;(princ "\n**************************** [ TOP -> BOTTOM ] ****************************")
 	(p2 ($get_printer cpi) ($get_paper_for_printer cpi) ($get_printing_style 'COLOR) 'colour nil :vlax-false :vlax-true)
-)```
+)
+```
 
-2.```HPL```: Shows history of printings for a file 
-```lisp
+2. ```HPL```: Shows history of printings for a file 
+```lisp	
 	**************************************************************
 			   -= HISTORY : PRO 2228 =-
 			 Today: 6, Wednesday 12:57 PM
